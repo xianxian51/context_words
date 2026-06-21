@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../models/assistant_message.dart';
+import '../../models/deepseek_model.dart';
 import '../../models/deepseek_models.dart';
 import '../../models/word_model.dart';
 
@@ -32,9 +34,13 @@ final class DeepSeekService {
 
   final Dio _dio;
 
-  Future<void> testConnection(String apiKey) async {
+  Future<void> testConnection(
+    String apiKey, {
+    required DeepSeekModel model,
+  }) async {
     await _chat(
       apiKey: apiKey,
+      model: model,
       prompt: 'Return exactly this JSON object: {"ok":true}',
       temperature: 0,
     );
@@ -43,12 +49,14 @@ final class DeepSeekService {
   Future<List<DeepSeekWordDetails>> completeWordDetails(
     List<String> words, {
     required String apiKey,
+    required DeepSeekModel model,
   }) async {
     if (words.isEmpty) {
       return const <DeepSeekWordDetails>[];
     }
     final content = await _chat(
       apiKey: apiKey,
+      model: model,
       temperature: 0.3,
       prompt:
           '''You are an English vocabulary assistant. Return only a valid JSON array, with no markdown or explanation. Complete every input word exactly once. Each object must use these keys: word, phonetic, part_of_speech, meaning_cn, meaning_en, example_sentence, phrase, synonyms. phrase and synonyms must be JSON arrays of strings. Input words: ${jsonEncode(words)}''',
@@ -63,6 +71,7 @@ final class DeepSeekService {
   Future<DeepSeekWordDetails> lookupSingleWord(
     String word, {
     required String apiKey,
+    required DeepSeekModel model,
   }) async {
     final normalized = word.trim().toLowerCase();
     if (normalized.isEmpty) {
@@ -70,6 +79,7 @@ final class DeepSeekService {
     }
     final content = await _chat(
       apiKey: apiKey,
+      model: model,
       temperature: 0.25,
       prompt:
           '''You are an English vocabulary assistant. Look up this single English word: ${jsonEncode(normalized)}.
@@ -87,10 +97,12 @@ phrase and synonyms must be JSON arrays of strings.''',
   Future<GeneratedPassage> generateMorningPassage(
     List<String> words, {
     required String apiKey,
+    required DeepSeekModel model,
   }) {
     return generatePassageForWords(
       words: words,
       apiKey: apiKey,
+      model: model,
       purpose: 'daily_plan',
       sourceName: '第一遍阅读预热：大学生活、学习、考试或社会生活主题',
     );
@@ -99,6 +111,7 @@ phrase and synonyms must be JSON arrays of strings.''',
   Future<GeneratedPassage> generateAfternoonPassage(
     List<String> words, {
     required String apiKey,
+    required DeepSeekModel model,
     String? morningTitle,
   }) {
     final avoid = morningTitle == null || morningTitle.trim().isEmpty
@@ -107,6 +120,7 @@ phrase and synonyms must be JSON arrays of strings.''',
     return generatePassageForWords(
       words: words,
       apiKey: apiKey,
+      model: model,
       purpose: 'daily_plan',
       sourceName: '第二遍语境强化：使用不同场景和主题。$avoid',
     );
@@ -117,6 +131,7 @@ phrase and synonyms must be JSON arrays of strings.''',
     required String purpose,
     required String sourceName,
     required String apiKey,
+    required DeepSeekModel model,
   }) async {
     final normalizedWords = words
         .map((word) => word.trim().toLowerCase())
@@ -138,6 +153,7 @@ phrase and synonyms must be JSON arrays of strings.''',
         : sourceName.trim();
     final content = await _chat(
       apiKey: apiKey,
+      model: model,
       temperature: 0.55,
       prompt:
           '''$purposeInstruction
@@ -161,6 +177,7 @@ phrase and synonyms must be JSON arrays of strings.''',
     required String title,
     required String content,
     required String apiKey,
+    required DeepSeekModel model,
   }) async {
     final normalizedTitle = title.trim();
     final normalizedContent = content.trim();
@@ -172,6 +189,7 @@ phrase and synonyms must be JSON arrays of strings.''',
     }
     final response = await _chat(
       apiKey: apiKey,
+      model: model,
       temperature: 0.2,
       maxTokens: 6000,
       prompt: translationPrompt(
@@ -210,10 +228,12 @@ phrase and synonyms must be JSON arrays of strings.''',
   Future<String> generateConfusingWordsAnalysis(
     List<WordModel> words, {
     required String apiKey,
+    required DeepSeekModel model,
   }) async {
     validateConfusingWordsForAnalysis(words);
     final content = await _chat(
       apiKey: apiKey,
+      model: model,
       temperature: 0.35,
       maxTokens: 3500,
       jsonResponse: false,
@@ -248,27 +268,92 @@ phrase and synonyms must be JSON arrays of strings.''',
         )
         .toList(growable: false);
     return '''
-请为下面这组容易混淆的英语单词生成中文辨析和记忆方法。
+请对以下容易混淆的英语单词做简洁辨析，面向中国大学英语六级学习者。
+只输出以下 Markdown 内容：
+
+# 核心区别
+用 3-5 句话说明这组词最主要的区别。
+
+# 逐词辨析
+每个词使用以下格式：
+
+## word
+* 词性：
+* 核心意思：
+* 适用场景：
+* 例句：
+* 一句话记忆：
+
+# 最容易混的点
+列出 2-4 条。
+
+# 快速记忆
+给出简短记忆方法。
 
 要求：
-1. 先概括这组词为什么容易混。
-2. 分别说明每个词的核心含义、常见词性和中文释义。
-3. 对比词形差异，指出前缀、词根、后缀或字母差异中有助于记忆的部分。
-4. 给出每个词最常见的使用场景。
-5. 每个词给 1 个英文例句，并附中文翻译。
-6. 总结最容易混淆的点。
-7. 给出简短好记的记忆方法。
-8. 最后生成 5 道小测验，并附答案。
-
-输出限制：
-- 不要 markdown 代码块。
-- 不要返回 JSON。
-- 内容适合手机阅读，不要过长。
-- 如果词较多，优先讲清核心差异。
+1. 不要添加练习题或答案。
+2. 不要写开场白或寒暄。
+3. 不要说“好的，我们来辨析”。
+4. 内容适合手机阅读。
+5. 使用 Markdown，但不要 markdown 代码块。
+6. 不要超过 1200 个汉字，词很多时压缩表达。
 
 单词资料：
 ${jsonEncode(payload)}
 ''';
+  }
+
+  static const englishAssistantSystemPrompt = '''
+你是一位精通英语、适合中国大学生的英语学习老师。你擅长解释单词含义和用法、对比易混词、讲解长难句、分析六级阅读文章、生成例句和记忆方法，并用简洁清楚、适合手机阅读的中文回答。
+
+要求：
+1. 不要啰嗦，不要输出过长内容。
+2. 优先给出结论和例子。
+3. 涉及英文单词时，尽量给出词性、中文意思和例句。
+4. 用户问作文表达时，给出自然表达和替代表达。
+5. 用户问阅读句子时，先拆结构，再翻译。
+6. 使用 Markdown 排版，但不要使用 markdown 代码块包裹整篇回答。
+''';
+
+  Future<String> answerEnglishQuestion(
+    List<AssistantMessage> messages, {
+    required String apiKey,
+    required DeepSeekModel model,
+  }) async {
+    final validMessages = messages
+        .where((message) => message.content.trim().isNotEmpty)
+        .toList(growable: false);
+    if (validMessages.isEmpty ||
+        validMessages.last.role != AssistantRole.user) {
+      throw const DeepSeekException('请输入英语学习问题。');
+    }
+    final limited = validMessages.length <= 20
+        ? validMessages
+        : validMessages.sublist(validMessages.length - 20);
+    final latestQuestion = limited.last.content.trim();
+    if (latestQuestion.length > 4000) {
+      throw const DeepSeekException('问题过长，请缩短后重试。');
+    }
+    final history = limited
+        .take(limited.length - 1)
+        .map(
+          (message) => <String, String>{
+            'role': message.role == AssistantRole.user ? 'user' : 'assistant',
+            'content': message.content.trim(),
+          },
+        )
+        .toList(growable: false);
+    final response = await _chat(
+      apiKey: apiKey,
+      model: model,
+      prompt: latestQuestion,
+      temperature: 0.4,
+      jsonResponse: false,
+      maxTokens: 1800,
+      systemPrompt: englishAssistantSystemPrompt,
+      history: history,
+    );
+    return response.trim();
   }
 
   static PassageLengthRange passageLengthRange(int wordCount) {
@@ -283,12 +368,14 @@ ${jsonEncode(payload)}
 
   Future<String> _chat({
     required String apiKey,
+    required DeepSeekModel model,
     required String prompt,
     required double temperature,
     bool jsonResponse = true,
     int maxTokens = 4096,
     String systemPrompt =
         'Return valid JSON only. Never wrap JSON in markdown.',
+    List<Map<String, String>> history = const <Map<String, String>>[],
   }) async {
     if (apiKey.trim().isEmpty) {
       throw const DeepSeekException('请先在设置页填写 DeepSeek API Key。');
@@ -300,13 +387,14 @@ ${jsonEncode(payload)}
           headers: <String, Object>{'Authorization': 'Bearer ${apiKey.trim()}'},
         ),
         data: <String, Object>{
-          'model': 'deepseek-chat',
+          'model': model.apiName,
           'temperature': temperature,
           'max_tokens': maxTokens,
           if (jsonResponse)
             'response_format': const <String, String>{'type': 'json_object'},
           'messages': <Map<String, String>>[
             <String, String>{'role': 'system', 'content': systemPrompt},
+            ...history,
             <String, String>{'role': 'user', 'content': prompt},
           ],
         },

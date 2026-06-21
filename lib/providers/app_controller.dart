@@ -7,12 +7,16 @@ import '../core/services/deepseek_service.dart';
 import '../core/services/backup_service.dart';
 import '../core/services/settings_service.dart';
 import '../core/services/tts_service.dart';
+import '../core/services/update_service.dart';
 import '../core/services/word_import_parser.dart';
 import '../core/services/word_lookup_service.dart';
 import '../core/services/wordbook_service.dart';
 import '../models/batch_append_result.dart';
+import '../models/app_release.dart';
+import '../models/assistant_message.dart';
 import '../models/collection_passage_model.dart';
 import '../models/daily_plan_model.dart';
+import '../models/deepseek_model.dart';
 import '../models/deepseek_models.dart';
 import '../models/confusing_word_group_model.dart';
 import '../models/history_day_model.dart';
@@ -46,6 +50,7 @@ final class AppController extends ChangeNotifier {
     ConfusingWordGroupRepository? confusingWordGroupRepository,
     BackupService? backupService,
     CollectionPassageRepository? collectionPassageRepository,
+    UpdateService? updateService,
   }) : _wordRepository = wordRepository ?? WordRepository(),
        _dailyPlanRepository = dailyPlanRepository ?? DailyPlanRepository(),
        _readingRepository = readingRepository ?? ReadingRepository(),
@@ -57,6 +62,7 @@ final class AppController extends ChangeNotifier {
            confusingWordGroupRepository ?? ConfusingWordGroupRepository(),
        _collectionPassageRepository =
            collectionPassageRepository ?? CollectionPassageRepository(),
+       _updateService = updateService ?? UpdateService(),
        _wordbookService =
            wordbookService ?? WordbookService(wordRepository: wordRepository) {
     _backupService =
@@ -79,6 +85,7 @@ final class AppController extends ChangeNotifier {
   final WordBookRepository _wordBookRepository;
   final ConfusingWordGroupRepository _confusingWordGroupRepository;
   final CollectionPassageRepository _collectionPassageRepository;
+  final UpdateService _updateService;
   final WordbookService _wordbookService;
   late final BackupService _backupService;
   late final WordLookupService _wordLookupService;
@@ -97,6 +104,8 @@ final class AppController extends ChangeNotifier {
   bool hasApiKey = false;
   bool autoPrepareDaily = SettingsService.defaultAutoPrepareDaily;
   bool autoGenerateReadings = SettingsService.defaultAutoGenerateReadings;
+  DeepSeekModel deepSeekModel = SettingsService.defaultDeepSeekModel;
+  bool checkUpdatesOnLaunch = SettingsService.defaultCheckUpdatesOnLaunch;
   bool isPreparingToday = false;
   String? preparationStatus;
   String? lastPreparedDate;
@@ -129,6 +138,8 @@ final class AppController extends ChangeNotifier {
       wordSelectionMode = await _settingsService.getWordSelectionMode();
       autoPrepareDaily = await _settingsService.getAutoPrepareDaily();
       autoGenerateReadings = await _settingsService.getAutoGenerateReadings();
+      deepSeekModel = await _settingsService.getDeepSeekModel();
+      checkUpdatesOnLaunch = await _settingsService.getCheckUpdatesOnLaunch();
       hasApiKey = (await _settingsService.getApiKey()).isNotEmpty;
       todayPlan = await _dailyPlanRepository.findByDate(DateTime.now());
       final planId = todayPlan?.id;
@@ -242,6 +253,7 @@ final class AppController extends ChangeNotifier {
         final details = await _deepSeekService.completeWordDetails(
           batch.map((word) => word.word).toList(growable: false),
           apiKey: apiKey,
+          model: deepSeekModel,
         );
         final byWord = <String, WordModel>{
           for (final word in batch) word.word.toLowerCase(): word,
@@ -297,6 +309,18 @@ final class AppController extends ChangeNotifier {
     });
     if (result.addedCount > 0 && autoGenerateReadings) {
       await prepareTodayLearning(manualRetry: true, createPlan: false);
+      final planId = todayPlan?.id;
+      if (planId != null) {
+        final generated = await _readingRepository.findByPlanAndBatch(
+          planId,
+          result.batchNo,
+        );
+        if (generated.map((passage) => passage.round).toSet().length == 2) {
+          setActionMessage(
+            '第 ${result.batchNo} 组已准备好，共 ${result.addedCount} 个单词。',
+          );
+        }
+      }
     } else if (result.addedCount > 0 && !autoGenerateReadings) {
       setActionMessage('第 ${result.batchNo} 组单词已准备好，可从高级操作生成阅读。');
     }
@@ -508,10 +532,15 @@ final class AppController extends ChangeNotifier {
           .map((item) => item.word.word)
           .toList(growable: false);
       final generated = round == 1
-          ? await _deepSeekService.generateMorningPassage(words, apiKey: apiKey)
+          ? await _deepSeekService.generateMorningPassage(
+              words,
+              apiKey: apiKey,
+              model: deepSeekModel,
+            )
           : await _deepSeekService.generateAfternoonPassage(
               words,
               apiKey: apiKey,
+              model: deepSeekModel,
               morningTitle: passages[1]?.title,
             );
       final normalized = _normalizeGeneratedPassage(generated, words);
@@ -554,6 +583,7 @@ final class AppController extends ChangeNotifier {
           title: passage.title ?? '',
           content: content,
           apiKey: apiKey,
+          model: deepSeekModel,
         );
         final saved = await _readingRepository.saveTranslation(
           id: id,
@@ -845,10 +875,26 @@ final class AppController extends ChangeNotifier {
         final analysis = await _deepSeekService.generateConfusingWordsAnalysis(
           words,
           apiKey: apiKey,
+          model: deepSeekModel,
         );
         await _confusingWordGroupRepository.saveAnalysis(groupId, analysis);
         notifyListeners();
         return analysis;
+      } on DeepSeekException catch (error) {
+        throw AppException(error.message);
+      }
+    });
+  }
+
+  Future<String> askEnglishAssistant(List<AssistantMessage> messages) {
+    return _runBusy('英语助手正在思考…', showDeepSeekSlowMessage: true, () async {
+      final apiKey = await _requiredApiKey();
+      try {
+        return await _deepSeekService.answerEnglishQuestion(
+          messages,
+          apiKey: apiKey,
+          model: deepSeekModel,
+        );
       } on DeepSeekException catch (error) {
         throw AppException(error.message);
       }
@@ -891,6 +937,7 @@ final class AppController extends ChangeNotifier {
           purpose: sourceType,
           sourceName: sourceName,
           apiKey: apiKey,
+          model: deepSeekModel,
         );
         final normalized = _normalizeGeneratedPassage(generated, wordValues);
         return _collectionPassageRepository.create(
@@ -931,6 +978,7 @@ final class AppController extends ChangeNotifier {
           title: passage.title ?? '',
           content: content,
           apiKey: apiKey,
+          model: deepSeekModel,
         );
         final saved = await _collectionPassageRepository.saveTranslation(
           id: id,
@@ -976,18 +1024,40 @@ final class AppController extends ChangeNotifier {
     required WordSelectionMode selectionMode,
     required bool autoPrepareDaily,
     required bool autoGenerateReadings,
+    required DeepSeekModel deepSeekModel,
+    required bool checkUpdatesOnLaunch,
   }) async {
     await _settingsService.saveApiKey(apiKey);
     await _settingsService.saveDailyWordCount(wordCount);
     await _settingsService.saveWordSelectionMode(selectionMode);
     await _settingsService.saveAutoPrepareDaily(autoPrepareDaily);
     await _settingsService.saveAutoGenerateReadings(autoGenerateReadings);
+    await _settingsService.saveDeepSeekModel(deepSeekModel);
+    await _settingsService.saveCheckUpdatesOnLaunch(checkUpdatesOnLaunch);
     hasApiKey = apiKey.trim().isNotEmpty;
     dailyWordCount = wordCount;
     wordSelectionMode = selectionMode;
     this.autoPrepareDaily = autoPrepareDaily;
     this.autoGenerateReadings = autoGenerateReadings;
+    this.deepSeekModel = deepSeekModel;
+    this.checkUpdatesOnLaunch = checkUpdatesOnLaunch;
     notifyListeners();
+  }
+
+  Future<AppRelease?> checkForUpdate() async {
+    try {
+      return await _updateService.checkForUpdate();
+    } on UpdateException catch (error) {
+      throw AppException(error.message);
+    }
+  }
+
+  Future<void> openRelease(AppRelease release) async {
+    try {
+      await _updateService.openRelease(release);
+    } on UpdateException catch (error) {
+      throw AppException(error.message);
+    }
   }
 
   Future<BackupExportResult> exportLearningData() {
@@ -1004,8 +1074,11 @@ final class AppController extends ChangeNotifier {
     });
   }
 
-  Future<void> testDeepSeekConnection(String apiKey) {
-    return _deepSeekService.testConnection(apiKey.trim());
+  Future<void> testDeepSeekConnection(String apiKey, {DeepSeekModel? model}) {
+    return _deepSeekService.testConnection(
+      apiKey.trim(),
+      model: model ?? deepSeekModel,
+    );
   }
 
   Future<void> speakWord(String word) async {

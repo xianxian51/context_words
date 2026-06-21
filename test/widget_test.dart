@@ -99,14 +99,27 @@ void main() {
 
     expect(find.text('抽词模式'), findsOneWidget);
     expect(find.text('随机抽取'), findsOneWidget);
+    expect(find.text('DeepSeek 模型'), findsOneWidget);
     expect(find.text('每日首次打开自动准备学习内容'), findsOneWidget);
+    expect(find.text('启动时检查更新'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('自动生成阅读'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('自动生成阅读'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
-    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('测试发音'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('已检测到英文 TTS'), findsOneWidget);
     expect(find.text('测试发音'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('导出学习数据'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('导出学习数据'), findsOneWidget);
     expect(find.text('导入学习数据'), findsOneWidget);
 

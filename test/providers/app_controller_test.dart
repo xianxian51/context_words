@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:context_words/models/deepseek_models.dart';
+import 'package:context_words/models/assistant_message.dart';
 import 'package:context_words/models/daily_plan_model.dart';
 import 'package:context_words/core/database/database_helper.dart';
 import 'package:context_words/core/services/settings_service.dart';
@@ -254,6 +255,29 @@ void main() {
     await helper.close();
   });
 
+  test('English assistant never sends a request without an API key', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final adapter = _NoRequestAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.deepseek.com'))
+      ..httpClientAdapter = adapter;
+    final controller = AppController(
+      settingsService: SettingsService(),
+      deepSeekService: DeepSeekService(dio: dio),
+    );
+
+    await expectLater(
+      controller.askEnglishAssistant(const <AssistantMessage>[
+        AssistantMessage(
+          role: AssistantRole.user,
+          content: 'What does context mean?',
+        ),
+      ]),
+      throwsA(isA<AppException>()),
+    );
+    expect(adapter.calls, 0);
+    controller.dispose();
+  });
+
   test('new reading translation is requested once and persisted', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'deepseek_api_key': 'test-key',
@@ -358,6 +382,23 @@ final class _PassageAdapter implements HttpClientAdapter {
         Headers.contentTypeHeader: <String>['application/json'],
       },
     );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final class _NoRequestAdapter implements HttpClientAdapter {
+  int calls = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    calls++;
+    throw StateError('No DeepSeek request should be sent.');
   }
 
   @override

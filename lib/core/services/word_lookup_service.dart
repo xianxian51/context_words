@@ -90,6 +90,7 @@ final class WordLookupService {
         final detail = await _deepSeekService.lookupSingleWord(
           normalized,
           apiKey: apiKey,
+          model: await _settingsService.getDeepSeekModel(),
         );
         return _saveLookupResult(detail, fallbackWord: normalized);
       } finally {

@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:context_words/core/services/deepseek_service.dart';
+import 'package:context_words/models/deepseek_model.dart';
 import 'package:context_words/models/word_model.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -127,5 +132,46 @@ Here is the JSON:
     expect(prompt, contains('context'));
     expect(prompt, contains('content'));
     expect(prompt, isNot(contains(apiKey)));
+    expect(prompt, isNot(contains('小测验')));
   });
+
+  test('sends the selected centralized model in chat requests', () async {
+    final adapter = _CaptureAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.deepseek.com'))
+      ..httpClientAdapter = adapter;
+    final service = DeepSeekService(dio: dio);
+
+    await service.testConnection('test-key', model: DeepSeekModel.fast);
+
+    expect(adapter.requestData?['model'], DeepSeekModel.fast.apiName);
+  });
+}
+
+final class _CaptureAdapter implements HttpClientAdapter {
+  Map<String, Object?>? requestData;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestData = Map<String, Object?>.from(options.data as Map);
+    return ResponseBody.fromString(
+      jsonEncode(<String, Object>{
+        'choices': <Object>[
+          <String, Object>{
+            'message': <String, Object>{'content': '{"ok":true}'},
+          },
+        ],
+      }),
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

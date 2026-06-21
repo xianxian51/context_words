@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../models/deepseek_model.dart';
 import '../../models/word_selection_mode.dart';
 import '../database/database_helper.dart';
 import '../database/database_schema.dart';
@@ -85,6 +86,9 @@ final class BackupService {
         'auto_prepare_daily': await _settingsService.getAutoPrepareDaily(),
         'auto_generate_readings': await _settingsService
             .getAutoGenerateReadings(),
+        'deepseek_model': (await _settingsService.getDeepSeekModel()).apiName,
+        'check_updates_on_launch': await _settingsService
+            .getCheckUpdatesOnLaunch(),
       },
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -490,6 +494,13 @@ final class BackupService {
       final autoReadings = settings['auto_generate_readings'];
       if (autoReadings is bool) {
         await _settingsService.saveAutoGenerateReadings(autoReadings);
+      }
+      await _settingsService.saveDeepSeekModel(
+        DeepSeekModel.fromStorage(_asString(settings['deepseek_model'])),
+      );
+      final checkUpdates = settings['check_updates_on_launch'];
+      if (checkUpdates is bool) {
+        await _settingsService.saveCheckUpdatesOnLaunch(checkUpdates);
       }
     }
     return BackupRestoreResult(

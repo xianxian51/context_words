@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/deepseek_model.dart';
 import '../../models/word_selection_mode.dart';
 import '../../providers/app_controller.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/builtin_wordbook_manager.dart';
+import '../../widgets/update_dialog.dart';
+import '../assistant/english_assistant_page.dart';
 
 final class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -19,16 +22,20 @@ final class _SettingsPageState extends State<SettingsPage> {
   bool _obscureApiKey = true;
   bool _busy = false;
   late WordSelectionMode _selectionMode;
+  late DeepSeekModel _deepSeekModel;
   late bool _autoPrepareDaily;
   late bool _autoGenerateReadings;
+  late bool _checkUpdatesOnLaunch;
 
   @override
   void initState() {
     super.initState();
     final controller = context.read<AppController>();
     _selectionMode = controller.wordSelectionMode;
+    _deepSeekModel = controller.deepSeekModel;
     _autoPrepareDaily = controller.autoPrepareDaily;
     _autoGenerateReadings = controller.autoGenerateReadings;
+    _checkUpdatesOnLaunch = controller.checkUpdatesOnLaunch;
     _wordCountController.text = controller.dailyWordCount.toString();
     controller.loadApiKey().then((value) {
       if (mounted) {
@@ -58,6 +65,8 @@ final class _SettingsPageState extends State<SettingsPage> {
         selectionMode: _selectionMode,
         autoPrepareDaily: _autoPrepareDaily,
         autoGenerateReadings: _autoGenerateReadings,
+        deepSeekModel: _deepSeekModel,
+        checkUpdatesOnLaunch: _checkUpdatesOnLaunch,
       );
       if (mounted) {
         _show('设置已保存，仅存储在本机。', type: AppSnackBarType.success);
@@ -82,6 +91,7 @@ final class _SettingsPageState extends State<SettingsPage> {
     try {
       await context.read<AppController>().testDeepSeekConnection(
         _apiKeyController.text,
+        model: _deepSeekModel,
       );
       if (mounted) {
         _show('DeepSeek 连接成功。', type: AppSnackBarType.success);
@@ -119,6 +129,30 @@ final class _SettingsPageState extends State<SettingsPage> {
     setState(() => _busy = true);
     try {
       await context.read<AppController>().refreshTtsStatus();
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    setState(() => _busy = true);
+    try {
+      final app = context.read<AppController>();
+      final release = await app.checkForUpdate();
+      if (!mounted) {
+        return;
+      }
+      if (release == null) {
+        _show('当前已是最新版本。', type: AppSnackBarType.success);
+      } else {
+        await showAppUpdateDialog(context, app, release);
+      }
+    } catch (error) {
+      if (mounted) {
+        _show(error.toString(), type: AppSnackBarType.error);
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -248,6 +282,34 @@ final class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const SizedBox(height: 20),
+          DropdownButtonFormField<DeepSeekModel>(
+            initialValue: _deepSeekModel,
+            decoration: const InputDecoration(
+              labelText: 'DeepSeek 模型',
+              border: OutlineInputBorder(),
+            ),
+            items: DeepSeekModel.values
+                .map(
+                  (model) => DropdownMenuItem<DeepSeekModel>(
+                    value: model,
+                    child: Text('${model.label}：${model.apiName}'),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: _busy
+                ? null
+                : (value) {
+                    if (value != null) {
+                      setState(() => _deepSeekModel = value);
+                    }
+                  },
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'deepseek-v4-pro 质量更高，适合翻译、辨析和问答；'
+            'deepseek-v4-flash 响应更快、更省费用。',
+          ),
+          const SizedBox(height: 20),
           TextField(
             controller: _wordCountController,
             keyboardType: TextInputType.number,
@@ -296,6 +358,15 @@ final class _SettingsPageState extends State<SettingsPage> {
           ),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
+            title: const Text('启动时检查更新'),
+            subtitle: const Text('有新版本时提示前往 GitHub 下载；网络失败不会打扰。'),
+            value: _checkUpdatesOnLaunch,
+            onChanged: _busy
+                ? null
+                : (value) => setState(() => _checkUpdatesOnLaunch = value),
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
             title: const Text('自动生成阅读'),
             subtitle: const Text('关闭后只自动准备今日单词，不调用 DeepSeek。'),
             value: _autoGenerateReadings,
@@ -314,6 +385,25 @@ final class _SettingsPageState extends State<SettingsPage> {
             onPressed: _busy ? null : _testConnection,
             icon: const Icon(Icons.cloud_done_outlined),
             label: const Text('测试 DeepSeek 连接'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _busy
+                ? null
+                : () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const EnglishAssistantPage(),
+                    ),
+                  ),
+            icon: const Icon(Icons.school_outlined),
+            label: const Text('打开英语助手'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _checkForUpdates,
+            icon: const Icon(Icons.system_update_rounded),
+            label: const Text('检查更新'),
           ),
           const SizedBox(height: 20),
           Card(

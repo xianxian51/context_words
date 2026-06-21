@@ -5,6 +5,7 @@ import '../../models/confusing_word_group_model.dart';
 import '../../models/word_model.dart';
 import '../../providers/app_controller.dart';
 import '../../widgets/add_to_word_book_sheet.dart';
+import '../../widgets/ai_markdown_body.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/word_detail_bottom_sheet.dart';
 import '../reading/passage_view_page.dart';
@@ -217,11 +218,11 @@ final class _ConfusingWordGroupDetailPageState
                           Card(
                             child: Padding(
                               padding: const EdgeInsets.all(16),
-                              child: Text(
-                                group.analysis?.trim().isNotEmpty == true
-                                    ? group.analysis!.trim()
-                                    : '还没有生成辨析。点击“生成辨析”后，DeepSeek 会对这组词做中文释义、词形差异、例句和小测验分析。',
-                              ),
+                              child: group.analysis?.trim().isNotEmpty == true
+                                  ? AiMarkdownBody(data: group.analysis!.trim())
+                                  : const Text(
+                                      '还没有生成辨析。点击“生成辨析”后，DeepSeek 会简洁说明核心区别、使用场景、例句和记忆方法。',
+                                    ),
                             ),
                           ),
                         ],

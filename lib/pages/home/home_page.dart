@@ -6,6 +6,8 @@ import '../../models/word_selection_mode.dart';
 import '../../providers/app_controller.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/builtin_wordbook_manager.dart';
+import '../../widgets/update_dialog.dart';
+import '../assistant/english_assistant_page.dart';
 import '../confusing_words/confusing_words_page.dart';
 import '../history/history_page.dart';
 import '../import_words/import_words_page.dart';
@@ -43,6 +45,7 @@ final class HomePage extends StatelessWidget {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
+                      const _StartupUpdateCheck(),
                       _TodayCard(app: app),
                       if (app.actionMessage case final message?) ...[
                         const SizedBox(height: 10),
@@ -176,6 +179,45 @@ final class HomePage extends StatelessWidget {
     }
     return '晚上复习 ${app.todayWords.length} 个单词';
   }
+}
+
+final class _StartupUpdateCheck extends StatefulWidget {
+  const _StartupUpdateCheck();
+
+  @override
+  State<_StartupUpdateCheck> createState() => _StartupUpdateCheckState();
+}
+
+final class _StartupUpdateCheckState extends State<_StartupUpdateCheck> {
+  bool _checked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_checked) {
+      return;
+    }
+    _checked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  Future<void> _check() async {
+    final app = context.read<AppController>();
+    if (!app.checkUpdatesOnLaunch) {
+      return;
+    }
+    try {
+      final release = await app.checkForUpdate();
+      if (mounted && release != null) {
+        await showAppUpdateDialog(context, app, release);
+      }
+    } catch (_) {
+      // Startup checks are intentionally silent; manual checks report errors.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 final class _TodayCard extends StatelessWidget {
@@ -440,6 +482,14 @@ final class _ActionGrid extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 18),
+        OutlinedButton.icon(
+          onPressed: app.isBusy || app.isPreparingToday
+              ? null
+              : () => _push(context, const EnglishAssistantPage()),
+          icon: const Icon(Icons.school_outlined),
+          label: const Text('英语助手'),
         ),
         const SizedBox(height: 18),
         Text('更多学习入口', style: Theme.of(context).textTheme.titleMedium),
