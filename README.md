@@ -1,0 +1,132 @@
+# 语境单词本 Context Words
+
+语境单词本是一款使用 Flutter 开发的 Android 英语学习 App。它围绕“三遍语境记忆法”组织每日学习：通过两篇语境阅读接触和强化目标词，再用单词列表完成复习。应用采用本地优先设计，学习计划、词库、阅读记录和星标数据默认保存在设备上的 SQLite 数据库中。
+
+> 当前仓库面向个人学习和测试使用。Debug APK 只适合测试，正式分发前需要配置稳定的 Android Release 签名。
+
+正式 Android applicationId 为 `io.github.xianxian51.contextwords`。
+
+## 核心功能
+
+- 内置大学英语六级词库
+- 每日自动学习计划与随机抽词
+- “再来一组”追加学习批次
+- DeepSeek AI 生成语境阅读短文
+- 阅读全文翻译
+- 阅读、释义和例句中的任意英文单词点查
+- 今日单词与晚间复习
+- Android 系统 TTS 单词发音
+- 重点词册（星标）
+- 自定义单词本
+- 易混词组与 AI 辨析
+- 英语学习助手能力，包括释义补全、查词、阅读和翻译
+- 学习数据 JSON 备份与合并恢复
+- GitHub Releases 更新检查机制（创建公开仓库并发布 Release 后启用）
+
+## 技术栈
+
+- Flutter / Dart
+- SQLite（`sqflite`）
+- DeepSeek OpenAI-compatible API（`dio`）
+- `flutter_tts`
+- `shared_preferences`
+- GitHub Releases
+
+## DeepSeek API Key
+
+App **不内置任何 DeepSeek API Key**。使用 AI 功能前，需要在 App 的“设置”页面填写自己的 DeepSeek API Key。
+
+- API Key 仅保存在当前设备的本地设置中。
+- API Key 不会写入 Dart 源码或内置资源。
+- 数据备份不会导出 API Key。
+- `.gitignore` 会排除常见密钥、环境文件和本地备份文件。
+
+请勿把个人 API Key 提交到 GitHub、Issue、日志或截图中。
+
+## 模型说明
+
+当前代码实际通过 DeepSeek OpenAI-compatible Chat Completions 接口调用 `deepseek-chat`，本次开源准备不修改模型配置。
+
+产品规划中的模式名称包括：
+
+- `deepseek-v4-pro`：高质量模式。
+- `deepseek-v4-flash`：快速省钱模式。
+
+这两个 V4 名称尚未接入当前代码，启用前必须以 DeepSeek 官方 API 文档中届时可用的模型 ID 为准。不要仅修改 README 就认为模型已经切换。
+
+## 本地运行
+
+准备好 Flutter 与 Android 开发环境后：
+
+```bash
+flutter pub get
+flutter run
+```
+
+运行检查：
+
+```bash
+flutter analyze
+flutter test
+```
+
+## 打包 APK
+
+构建 Debug APK：
+
+```bash
+flutter build apk --debug
+```
+
+默认输出路径：
+
+```text
+build/app/outputs/flutter-apk/app-debug.apk
+```
+
+Debug APK 只适合测试。正式发布需要配置独立、长期保管的 Android Release keystore，并确保 keystore、`key.properties`、APK 和 AAB 不进入源码仓库。
+
+## GitHub Releases 更新机制
+
+计划通过 GitHub Releases 提供安装包和版本信息：
+
+1. App 检查仓库的 latest release。
+2. 有新版本时提示用户下载。
+3. App 不做静默自动安装。
+4. 用户下载后需要自行确认安装。
+
+在 GitHub 仓库和 Release 尚未创建前，该机制不能完成线上更新检查。
+
+## 数据保留
+
+- 旧测试包名为 `com.example.context_words`，正式包名为 `io.github.xianxian51.contextwords`。Android 会把它们视为两个不同 App，旧版数据不会自动继承到正式版。
+- 从旧测试版迁移时，请先在旧版“设置 → 数据管理”中导出学习数据，安装正式包名版本后再在新版导入。
+- 后续使用相同正式 applicationId 和相同签名证书覆盖安装更高版本 APK，一般会保留 App 私有数据。
+- 卸载旧版 App 会删除系统管理的本地数据。
+- 更换包名或签名证书后，Android 可能将新版视为另一个 App，无法直接覆盖安装。
+- 更新前建议在“设置 → 数据管理”中导出学习数据。
+
+## 词库来源与 License
+
+内置 CET-6 词库由开源数据清洗、匹配后生成：
+
+- 释义来源：[skywind3000/ECDICT](https://github.com/skywind3000/ECDICT)，MIT License。
+- CET 词表来源：[JavaProgrammerLB/cet-word-list](https://github.com/JavaProgrammerLB/cet-word-list)，MIT License。
+- 原始项目的许可证文本保存在 `assets/wordbooks/ECDICT_LICENSE.txt` 和 `assets/wordbooks/CET_WORD_LIST_LICENSE.txt`。
+- 生成后的离线词库位于 `assets/wordbooks/cet6.json`。
+
+## 隐私说明
+
+- 学习数据默认保存在本地 SQLite 数据库。
+- DeepSeek 功能会将用户主动提交的单词、短文或查询内容发送至 DeepSeek API。
+- App 不提供自建账号系统、云同步或自有业务服务器。
+- App 不出售用户数据。
+- 使用 DeepSeek API 时还应阅读并遵守 DeepSeek 的服务条款和隐私政策。
+
+## 截图
+
+TODO: screenshots
+
+## License
+
+本项目采用 [MIT License](LICENSE)。第三方词库数据同时受其各自许可证约束，详见 `assets/wordbooks/`。
