@@ -9,8 +9,8 @@
 - Git 用户名：`xianxian51`
 - Git 邮箱：`180631472+xianxian51@users.noreply.github.com`
 - 本地分支：`main`
-- Remote：尚未创建
-- 目标公开仓库：`xianxian51/context_words`
+- Remote：`origin` → `https://github.com/xianxian51/context_words.git`
+- 公开仓库：https://github.com/xianxian51/context_words
 
 ## Android 标识
 
@@ -36,12 +36,15 @@
 - `flutter analyze`：通过，`No issues found!`
 - `flutter test`：通过，66 项测试成功
 - Debug APK：构建成功，APK 清单确认 package 为 `io.github.xianxian51.contextwords`、应用名为“语境单词本”
-- 首次 Git commit：待验证通过后创建
-- GitHub 仓库与 Release：待源码推送后创建
+- 首次 Git commit：`0ebb2eb`（`Initial open-source release of Context Words`）
+- GitHub 仓库：创建成功，`main` 已推送
+- GitHub Release：`v0.1.0` prerelease 创建成功
+- Release 地址：https://github.com/xianxian51/context_words/releases/tag/v0.1.0
+- Release 附件：`app-debug.apk`，状态 `uploaded`
 
 ## Release 约束
 
-- 计划标签：`v0.1.0`
+- 标签：`v0.1.0`
 - APK：`build/app/outputs/flutter-apk/app-debug.apk`
 - APK SHA-256：`ae63bd5633eb8bdd8da9423ba197cbfb09d7fa4003a557aaa16469c8c12cc765`
 - Debug APK 仅供测试，不适合正式生产发布
