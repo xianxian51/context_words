@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/deepseek_model.dart';
+import '../../models/tts_voice_preference.dart';
 import '../../models/word_selection_mode.dart';
 import '../../providers/app_controller.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -26,6 +27,7 @@ final class _SettingsPageState extends State<SettingsPage> {
   late bool _autoPrepareDaily;
   late bool _autoGenerateReadings;
   late bool _checkUpdatesOnLaunch;
+  late TtsVoicePreference _ttsVoicePreference;
 
   @override
   void initState() {
@@ -36,6 +38,7 @@ final class _SettingsPageState extends State<SettingsPage> {
     _autoPrepareDaily = controller.autoPrepareDaily;
     _autoGenerateReadings = controller.autoGenerateReadings;
     _checkUpdatesOnLaunch = controller.checkUpdatesOnLaunch;
+    _ttsVoicePreference = controller.ttsVoicePreference;
     _wordCountController.text = controller.dailyWordCount.toString();
     controller.loadApiKey().then((value) {
       if (mounted) {
@@ -112,7 +115,7 @@ final class _SettingsPageState extends State<SettingsPage> {
     try {
       await context.read<AppController>().testSpeech();
       if (mounted) {
-        _show('已播放 hello。', type: AppSnackBarType.success);
+        _show('已播放 academic。', type: AppSnackBarType.success);
       }
     } catch (error) {
       if (mounted) {
@@ -129,6 +132,29 @@ final class _SettingsPageState extends State<SettingsPage> {
     setState(() => _busy = true);
     try {
       await context.read<AppController>().refreshTtsStatus();
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _changeTtsVoicePreference(TtsVoicePreference preference) async {
+    final previousPreference = _ttsVoicePreference;
+    setState(() {
+      _ttsVoicePreference = preference;
+      _busy = true;
+    });
+    try {
+      await context.read<AppController>().setTtsVoicePreference(preference);
+      if (mounted) {
+        _show('发音设置已保存。', type: AppSnackBarType.success);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _ttsVoicePreference = previousPreference);
+        _show(error.toString(), type: AppSnackBarType.error);
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -412,15 +438,71 @@ final class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'TTS 发音',
-                    style: Theme.of(context).textTheme.titleMedium,
+                  Text('发音设置', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<TtsVoicePreference>(
+                    initialValue: _ttsVoicePreference,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: '发音类型',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: TtsVoicePreference.values
+                        .map(
+                          (preference) => DropdownMenuItem<TtsVoicePreference>(
+                            value: preference,
+                            child: Text(preference.label),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: _busy
+                        ? null
+                        : (preference) {
+                            if (preference != null) {
+                              _changeTtsVoicePreference(preference);
+                            }
+                          },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(app.ttsStatus.label),
                   if (app.ttsStatus.language != null) ...[
                     const SizedBox(height: 4),
-                    Text('当前语言：${app.ttsStatus.language}'),
+                    Text('当前使用：${app.ttsStatus.language}'),
+                  ],
+                  if (app.ttsStatus.warningMessage case final warning?) ...[
+                    const SizedBox(height: 10),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 20,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onErrorContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                warning,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onErrorContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 12),
                   Wrap(
@@ -431,12 +513,12 @@ final class _SettingsPageState extends State<SettingsPage> {
                         key: const Key('test-speech-button'),
                         onPressed: _busy ? null : _testSpeech,
                         icon: const Icon(Icons.volume_up_rounded),
-                        label: const Text('测试发音'),
+                        label: const Text('测试发音 academic'),
                       ),
                       TextButton.icon(
                         onPressed: _busy ? null : _detectSpeech,
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('重新检测'),
+                        label: const Text('刷新 TTS 状态'),
                       ),
                     ],
                   ),

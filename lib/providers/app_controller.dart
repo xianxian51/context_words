@@ -25,6 +25,7 @@ import '../models/plan_generation_result.dart';
 import '../models/paged_words_result.dart';
 import '../models/plan_word_model.dart';
 import '../models/reading_passage_model.dart';
+import '../models/tts_voice_preference.dart';
 import '../models/word_book_model.dart';
 import '../models/word_model.dart';
 import '../models/word_selection_mode.dart';
@@ -110,6 +111,8 @@ final class AppController extends ChangeNotifier {
   String? preparationStatus;
   String? lastPreparedDate;
   TtsStatus ttsStatus = const TtsStatus(TtsAvailability.checking);
+  TtsVoicePreference ttsVoicePreference =
+      SettingsService.defaultTtsVoicePreference;
   DailyPlanModel? todayPlan;
   List<PlanWordModel> allTodayWords = const <PlanWordModel>[];
   List<PlanWordModel> todayWords = const <PlanWordModel>[];
@@ -140,6 +143,7 @@ final class AppController extends ChangeNotifier {
       autoGenerateReadings = await _settingsService.getAutoGenerateReadings();
       deepSeekModel = await _settingsService.getDeepSeekModel();
       checkUpdatesOnLaunch = await _settingsService.getCheckUpdatesOnLaunch();
+      ttsVoicePreference = await _settingsService.getTtsVoicePreference();
       hasApiKey = (await _settingsService.getApiKey()).isNotEmpty;
       todayPlan = await _dailyPlanRepository.findByDate(DateTime.now());
       final planId = todayPlan?.id;
@@ -1084,12 +1088,20 @@ final class AppController extends ChangeNotifier {
   Future<void> speakWord(String word) async {
     try {
       await _ttsService.speakWord(word);
+      ttsStatus = _ttsService.status;
+      notifyListeners();
     } on TtsException catch (error) {
       throw AppException(error.message);
     }
   }
 
-  Future<void> testSpeech() => speakWord('hello');
+  Future<void> testSpeech() => speakWord('academic');
+
+  Future<void> setTtsVoicePreference(TtsVoicePreference preference) async {
+    await _settingsService.saveTtsVoicePreference(preference);
+    ttsVoicePreference = preference;
+    await refreshTtsStatus();
+  }
 
   Future<void> refreshTtsStatus() async {
     ttsStatus = const TtsStatus(TtsAvailability.checking);

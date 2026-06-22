@@ -7,6 +7,7 @@ import 'package:context_words/core/services/settings_service.dart';
 import 'package:context_words/models/word_model.dart';
 import 'package:context_words/models/collection_passage_model.dart';
 import 'package:context_words/models/word_selection_mode.dart';
+import 'package:context_words/models/tts_voice_preference.dart';
 import 'package:context_words/repositories/confusing_word_group_repository.dart';
 import 'package:context_words/repositories/collection_passage_repository.dart';
 import 'package:context_words/repositories/daily_plan_repository.dart';
@@ -51,6 +52,7 @@ void main() {
     final settings = SettingsService();
     await settings.saveDailyWordCount(30);
     await settings.saveWordSelectionMode(WordSelectionMode.sequential);
+    await settings.saveTtsVoicePreference(TtsVoicePreference.british);
 
     final json = await BackupService(
       databaseHelper: helper,
@@ -63,6 +65,10 @@ void main() {
     expect(
       decoded['settings'],
       isNot(containsPair('deepseek_api_key', anything)),
+    );
+    expect(
+      (decoded['settings'] as Map<String, dynamic>)['tts_voice_preference'],
+      'british',
     );
     expect(
       tables.keys,

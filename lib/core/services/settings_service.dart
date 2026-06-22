@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/deepseek_model.dart';
+import '../../models/tts_voice_preference.dart';
 import '../../models/word_selection_mode.dart';
 
 final class SettingsService {
@@ -11,12 +12,14 @@ final class SettingsService {
   static const _autoGenerateReadingsKey = 'auto_generate_readings';
   static const _deepSeekModelKey = 'deepseek_model';
   static const _checkUpdatesOnLaunchKey = 'check_updates_on_launch';
+  static const _ttsVoicePreferenceKey = 'tts_voice_preference';
   static const defaultDailyWordCount = 20;
   static const defaultWordSelectionMode = WordSelectionMode.random;
   static const defaultAutoPrepareDaily = true;
   static const defaultAutoGenerateReadings = true;
   static const defaultDeepSeekModel = DeepSeekModel.defaultValue;
   static const defaultCheckUpdatesOnLaunch = true;
+  static const defaultTtsVoicePreference = TtsVoicePreference.defaultValue;
 
   Future<String> getApiKey() async {
     final preferences = await SharedPreferences.getInstance();
@@ -93,5 +96,20 @@ final class SettingsService {
   Future<void> saveCheckUpdatesOnLaunch(bool enabled) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(_checkUpdatesOnLaunchKey, enabled);
+  }
+
+  Future<TtsVoicePreference> getTtsVoicePreference() async {
+    final preferences = await SharedPreferences.getInstance();
+    return TtsVoicePreference.fromStorage(
+      preferences.getString(_ttsVoicePreferenceKey),
+    );
+  }
+
+  Future<void> saveTtsVoicePreference(TtsVoicePreference preference) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _ttsVoicePreferenceKey,
+      preference.storageValue,
+    );
   }
 }

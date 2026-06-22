@@ -86,7 +86,15 @@ void main() {
       ..isLoading = false
       ..ttsStatus = const TtsStatus(
         TtsAvailability.englishAvailable,
-        language: 'en-US',
+        language: 'en',
+        diagnostics: TtsDiagnostics(
+          availableLanguages: <String>['en'],
+          preferredLanguage: 'en-US',
+          resolvedLanguage: 'en',
+          isExactMatch: false,
+          isFallbackToGenericEnglish: true,
+          warningMessage: '当前手机未检测到 en-US 美式英语语音包。',
+        ),
       );
 
     await tester.pumpWidget(
@@ -109,12 +117,17 @@ void main() {
     );
     expect(find.text('自动生成阅读'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('测试发音'),
+      find.text('测试发音 academic'),
       220,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('已检测到英文 TTS'), findsOneWidget);
-    expect(find.text('测试发音'), findsOneWidget);
+    expect(find.text('发音设置'), findsOneWidget);
+    expect(find.text('美式发音 en-US'), findsOneWidget);
+    expect(find.text('当前使用：en'), findsOneWidget);
+    expect(find.textContaining('未检测到 en-US'), findsOneWidget);
+    expect(find.text('测试发音 academic'), findsOneWidget);
+    expect(find.text('刷新 TTS 状态'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('导出学习数据'),
       220,

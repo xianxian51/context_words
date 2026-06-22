@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../models/deepseek_model.dart';
+import '../../models/tts_voice_preference.dart';
 import '../../models/word_selection_mode.dart';
 import '../database/database_helper.dart';
 import '../database/database_schema.dart';
@@ -89,6 +90,8 @@ final class BackupService {
         'deepseek_model': (await _settingsService.getDeepSeekModel()).apiName,
         'check_updates_on_launch': await _settingsService
             .getCheckUpdatesOnLaunch(),
+        'tts_voice_preference':
+            (await _settingsService.getTtsVoicePreference()).storageValue,
       },
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -501,6 +504,12 @@ final class BackupService {
       final checkUpdates = settings['check_updates_on_launch'];
       if (checkUpdates is bool) {
         await _settingsService.saveCheckUpdatesOnLaunch(checkUpdates);
+      }
+      final ttsPreference = _asString(settings['tts_voice_preference']);
+      if (ttsPreference != null) {
+        await _settingsService.saveTtsVoicePreference(
+          TtsVoicePreference.fromStorage(ttsPreference),
+        );
       }
     }
     return BackupRestoreResult(
