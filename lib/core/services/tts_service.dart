@@ -307,7 +307,7 @@ final class TtsService {
     bool isGeneric,
   ) {
     if (resolvedLanguage == null) {
-      return '当前手机未检测到可用的英语语音包，请检查系统文字转语音设置。';
+      return '当前手机未检测到可用英语 TTS，请安装或启用文字转语音引擎。';
     }
     if (isGeneric) {
       return switch (preference) {

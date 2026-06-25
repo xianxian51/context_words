@@ -70,6 +70,15 @@ void main() {
     expect(diagnostics.warningMessage, contains('发音可能不标准'));
   });
 
+  test('missing English TTS reports install or enable guidance', () {
+    final diagnostics = TtsService.diagnoseLanguages(<String>[
+      'zh-CN',
+    ], TtsVoicePreference.american);
+
+    expect(diagnostics.resolvedLanguage, isNull);
+    expect(diagnostics.warningMessage, contains('安装或启用'));
+  });
+
   test(
     'getTtsDiagnostics reports the configured and resolved languages',
     () async {

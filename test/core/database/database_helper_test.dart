@@ -280,8 +280,12 @@ CREATE TABLE collection_passages (
 
     expect(daily['content'], 'Legacy daily passage.');
     expect(daily['translation_cn'], isNull);
+    expect(daily['sentence_pairs_json'], isNull);
+    expect(daily['key_word_notes_json'], isNull);
     expect(collection['content'], 'Legacy collection passage.');
     expect(collection['translation_cn'], isNull);
+    expect(collection['sentence_pairs_json'], isNull);
+    expect(collection['key_word_notes_json'], isNull);
 
     await migratingHelper.close();
     await databaseFactoryFfi.deleteDatabase(databasePath);

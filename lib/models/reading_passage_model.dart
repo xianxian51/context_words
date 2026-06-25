@@ -11,6 +11,8 @@ final class ReadingPassageModel {
     this.usedWords = const <String>[],
     this.titleCn,
     this.translationCn,
+    this.sentencePairsJson,
+    this.keyWordNotesJson,
     this.translatedAt,
     this.aiGenerated = false,
     this.createdAt,
@@ -25,6 +27,8 @@ final class ReadingPassageModel {
   final List<String> usedWords;
   final String? titleCn;
   final String? translationCn;
+  final String? sentencePairsJson;
+  final String? keyWordNotesJson;
   final DateTime? translatedAt;
   final bool aiGenerated;
   final DateTime? createdAt;
@@ -40,6 +44,8 @@ final class ReadingPassageModel {
       usedWords: _decodeUsedWords(map['used_words']),
       titleCn: map['title_cn'] as String?,
       translationCn: map['translation_cn'] as String?,
+      sentencePairsJson: map['sentence_pairs_json'] as String?,
+      keyWordNotesJson: map['key_word_notes_json'] as String?,
       translatedAt: _parseDateTime(map['translated_at']),
       aiGenerated: map['ai_generated'] == 1,
       createdAt: _parseDateTime(map['created_at']),
@@ -57,6 +63,8 @@ final class ReadingPassageModel {
       'used_words': jsonEncode(usedWords),
       'title_cn': titleCn,
       'translation_cn': translationCn,
+      'sentence_pairs_json': sentencePairsJson,
+      'key_word_notes_json': keyWordNotesJson,
       'translated_at': translatedAt?.toIso8601String(),
       'ai_generated': aiGenerated ? 1 : 0,
       'created_at': createdAt?.toIso8601String(),
@@ -66,6 +74,8 @@ final class ReadingPassageModel {
   ReadingPassageModel copyWith({
     String? titleCn,
     String? translationCn,
+    String? sentencePairsJson,
+    String? keyWordNotesJson,
     DateTime? translatedAt,
   }) {
     return ReadingPassageModel(
@@ -78,6 +88,8 @@ final class ReadingPassageModel {
       usedWords: usedWords,
       titleCn: titleCn ?? this.titleCn,
       translationCn: translationCn ?? this.translationCn,
+      sentencePairsJson: sentencePairsJson ?? this.sentencePairsJson,
+      keyWordNotesJson: keyWordNotesJson ?? this.keyWordNotesJson,
       translatedAt: translatedAt ?? this.translatedAt,
       aiGenerated: aiGenerated,
       createdAt: createdAt,

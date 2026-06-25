@@ -453,6 +453,8 @@ final class BackupService {
           'used_words': _asString(row['used_words']) ?? '[]',
           'title_cn': _asString(row['title_cn']),
           'translation_cn': _asString(row['translation_cn']),
+          'sentence_pairs_json': _asString(row['sentence_pairs_json']),
+          'key_word_notes_json': _asString(row['key_word_notes_json']),
           'translated_at': _asString(row['translated_at']),
           'created_at':
               _asString(row['created_at']) ??
@@ -576,6 +578,8 @@ const _readingFields = <String>{
   'used_words',
   'title_cn',
   'translation_cn',
+  'sentence_pairs_json',
+  'key_word_notes_json',
   'translated_at',
   'ai_generated',
   'created_at',

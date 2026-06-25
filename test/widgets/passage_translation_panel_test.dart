@@ -17,6 +17,19 @@ void main() {
               return const PassageTranslation(
                 titleCn: '校园',
                 translationCn: '语境帮助记忆。',
+                sentencePairs: <TranslationSentencePair>[
+                  TranslationSentencePair(
+                    en: 'Context helps memory.',
+                    zh: '语境帮助记忆。',
+                  ),
+                ],
+                keyWordNotes: <TranslationKeyWordNote>[
+                  TranslationKeyWordNote(
+                    word: 'context',
+                    meaningInContext: '语境',
+                    sentence: 'Context helps memory.',
+                  ),
+                ],
               );
             },
           ),
@@ -39,7 +52,11 @@ void main() {
 
     expect(calls, 1);
     expect(find.text('校园'), findsOneWidget);
+    expect(find.text('学习翻译'), findsOneWidget);
+    expect(find.text('原句 1'), findsOneWidget);
+    expect(find.text('Context helps memory.'), findsWidgets);
     expect(find.text('语境帮助记忆。'), findsOneWidget);
+    expect(find.text('目标词提示'), findsOneWidget);
   });
 
   testWidgets('cached translation opens locally without a request', (

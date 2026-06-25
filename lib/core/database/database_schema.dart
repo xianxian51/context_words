@@ -1,6 +1,6 @@
 abstract final class DatabaseSchema {
   static const databaseName = 'context_words.db';
-  static const databaseVersion = 5;
+  static const databaseVersion = 6;
 
   static const wordsTable = 'words';
   static const dailyPlansTable = 'daily_plans';
@@ -73,6 +73,8 @@ CREATE TABLE $readingPassagesTable (
   used_words TEXT,
   title_cn TEXT,
   translation_cn TEXT,
+  sentence_pairs_json TEXT,
+  key_word_notes_json TEXT,
   translated_at TEXT,
   ai_generated INTEGER NOT NULL DEFAULT 0 CHECK (ai_generated IN (0, 1)),
   created_at TEXT,
@@ -156,6 +158,8 @@ CREATE TABLE IF NOT EXISTS $collectionPassagesTable (
   used_words TEXT,
   title_cn TEXT,
   translation_cn TEXT,
+  sentence_pairs_json TEXT,
+  key_word_notes_json TEXT,
   translated_at TEXT,
   created_at TEXT NOT NULL
 )
@@ -171,6 +175,17 @@ CREATE TABLE IF NOT EXISTS $collectionPassagesTable (
       'title_cn',
       'translation_cn',
       'translated_at',
+    ],
+  };
+
+  static const version6LearningTranslationColumns = <String, List<String>>{
+    readingPassagesTable: <String>[
+      'sentence_pairs_json',
+      'key_word_notes_json',
+    ],
+    collectionPassagesTable: <String>[
+      'sentence_pairs_json',
+      'key_word_notes_json',
     ],
   };
 

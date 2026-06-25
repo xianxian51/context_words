@@ -86,6 +86,9 @@ final class _ReadingPageState extends State<ReadingPage> {
                               key: ValueKey<int?>(passage.id),
                               initialTitleCn: passage.titleCn,
                               initialTranslationCn: passage.translationCn,
+                              initialSentencePairsJson:
+                                  passage.sentencePairsJson,
+                              initialKeyWordNotesJson: passage.keyWordNotesJson,
                               onTranslate: ({required force}) =>
                                   app.translateReadingPassage(
                                     passage,

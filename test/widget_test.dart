@@ -127,7 +127,8 @@ void main() {
     expect(find.text('当前使用：en'), findsOneWidget);
     expect(find.textContaining('未检测到 en-US'), findsOneWidget);
     expect(find.text('测试发音 academic'), findsOneWidget);
-    expect(find.text('刷新 TTS 状态'), findsOneWidget);
+    expect(find.text('重新检测语音包'), findsOneWidget);
+    expect(find.text('下载/安装英语语音包'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('导出学习数据'),
       220,

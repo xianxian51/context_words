@@ -10,6 +10,8 @@ final class CollectionPassageModel {
     this.usedWords = const <String>[],
     this.titleCn,
     this.translationCn,
+    this.sentencePairsJson,
+    this.keyWordNotesJson,
     this.translatedAt,
     this.createdAt,
   });
@@ -22,6 +24,8 @@ final class CollectionPassageModel {
   final List<String> usedWords;
   final String? titleCn;
   final String? translationCn;
+  final String? sentencePairsJson;
+  final String? keyWordNotesJson;
   final DateTime? translatedAt;
   final DateTime? createdAt;
 
@@ -34,6 +38,8 @@ final class CollectionPassageModel {
     'used_words': jsonEncode(usedWords),
     'title_cn': titleCn,
     'translation_cn': translationCn,
+    'sentence_pairs_json': sentencePairsJson,
+    'key_word_notes_json': keyWordNotesJson,
     'translated_at': translatedAt?.toUtc().toIso8601String(),
     'created_at': createdAt?.toUtc().toIso8601String(),
   };
@@ -59,6 +65,8 @@ final class CollectionPassageModel {
           : const <String>[],
       titleCn: map['title_cn'] as String?,
       translationCn: map['translation_cn'] as String?,
+      sentencePairsJson: map['sentence_pairs_json'] as String?,
+      keyWordNotesJson: map['key_word_notes_json'] as String?,
       translatedAt: DateTime.tryParse(map['translated_at'] as String? ?? ''),
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? ''),
     );
@@ -67,6 +75,8 @@ final class CollectionPassageModel {
   CollectionPassageModel copyWith({
     String? titleCn,
     String? translationCn,
+    String? sentencePairsJson,
+    String? keyWordNotesJson,
     DateTime? translatedAt,
   }) {
     return CollectionPassageModel(
@@ -78,6 +88,8 @@ final class CollectionPassageModel {
       usedWords: usedWords,
       titleCn: titleCn ?? this.titleCn,
       translationCn: translationCn ?? this.translationCn,
+      sentencePairsJson: sentencePairsJson ?? this.sentencePairsJson,
+      keyWordNotesJson: keyWordNotesJson ?? this.keyWordNotesJson,
       translatedAt: translatedAt ?? this.translatedAt,
       createdAt: createdAt,
     );

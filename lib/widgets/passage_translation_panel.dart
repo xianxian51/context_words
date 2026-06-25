@@ -12,11 +12,15 @@ final class PassageTranslationPanel extends StatefulWidget {
     required this.onTranslate,
     this.initialTitleCn,
     this.initialTranslationCn,
+    this.initialSentencePairsJson,
+    this.initialKeyWordNotesJson,
     super.key,
   });
 
   final String? initialTitleCn;
   final String? initialTranslationCn;
+  final String? initialSentencePairsJson;
+  final String? initialKeyWordNotesJson;
   final PassageTranslationLoader onTranslate;
 
   @override
@@ -28,6 +32,10 @@ final class _PassageTranslationPanelState
     extends State<PassageTranslationPanel> {
   late String? _titleCn = _normalized(widget.initialTitleCn);
   late String? _translationCn = _normalized(widget.initialTranslationCn);
+  late List<TranslationSentencePair> _sentencePairs =
+      decodeTranslationSentencePairs(widget.initialSentencePairsJson);
+  late List<TranslationKeyWordNote> _keyWordNotes =
+      decodeTranslationKeyWordNotes(widget.initialKeyWordNotesJson);
   bool _showTranslation = false;
   bool _translating = false;
   String? _error;
@@ -36,9 +44,17 @@ final class _PassageTranslationPanelState
   void didUpdateWidget(covariant PassageTranslationPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTitleCn != widget.initialTitleCn ||
-        oldWidget.initialTranslationCn != widget.initialTranslationCn) {
+        oldWidget.initialTranslationCn != widget.initialTranslationCn ||
+        oldWidget.initialSentencePairsJson != widget.initialSentencePairsJson ||
+        oldWidget.initialKeyWordNotesJson != widget.initialKeyWordNotesJson) {
       _titleCn = _normalized(widget.initialTitleCn);
       _translationCn = _normalized(widget.initialTranslationCn);
+      _sentencePairs = decodeTranslationSentencePairs(
+        widget.initialSentencePairsJson,
+      );
+      _keyWordNotes = decodeTranslationKeyWordNotes(
+        widget.initialKeyWordNotesJson,
+      );
     }
   }
 
@@ -79,6 +95,8 @@ final class _PassageTranslationPanelState
       setState(() {
         _titleCn = _normalized(translated.titleCn);
         _translationCn = translated.translationCn.trim();
+        _sentencePairs = translated.sentencePairs;
+        _keyWordNotes = translated.keyWordNotes;
         _showTranslation = true;
       });
     } catch (error) {
@@ -93,11 +111,11 @@ final class _PassageTranslationPanelState
   }
 
   Future<void> _copyTranslation() async {
-    final translation = _translationCn;
-    if (translation == null) {
+    final copyText = _copyableTranslation();
+    if (copyText == null) {
       return;
     }
-    await Clipboard.setData(ClipboardData(text: translation));
+    await Clipboard.setData(ClipboardData(text: copyText));
     if (mounted) {
       showAppSnackBar(context, '翻译已复制。', type: AppSnackBarType.success);
     }
@@ -174,7 +192,7 @@ final class _PassageTranslationPanelState
                     children: [
                       Expanded(
                         child: Text(
-                          '中文翻译',
+                          '学习翻译',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
@@ -192,12 +210,30 @@ final class _PassageTranslationPanelState
                     ),
                     const SizedBox(height: 10),
                   ],
-                  SelectableText(
-                    _translationCn!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(height: 1.75),
-                  ),
+                  if (_sentencePairs.isNotEmpty)
+                    ..._sentencePairs.indexed.map(
+                      (entry) => _SentencePairCard(
+                        index: entry.$1 + 1,
+                        pair: entry.$2,
+                      ),
+                    )
+                  else
+                    SelectableText(
+                      _translationCn!,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(height: 1.75),
+                    ),
+                  if (_keyWordNotes.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      '目标词提示',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    for (final note in _keyWordNotes)
+                      _KeyWordNoteTile(note: note),
+                  ],
                 ],
               ),
             ),
@@ -206,9 +242,136 @@ final class _PassageTranslationPanelState
       ],
     );
   }
+
+  String? _copyableTranslation() {
+    final translation = _translationCn;
+    if (translation == null) {
+      return null;
+    }
+    final buffer = StringBuffer();
+    if (_titleCn != null) {
+      buffer.writeln(_titleCn);
+      buffer.writeln();
+    }
+    if (_sentencePairs.isNotEmpty) {
+      for (final entry in _sentencePairs.indexed) {
+        buffer.writeln('原句 ${entry.$1 + 1}：${entry.$2.en}');
+        buffer.writeln('译文：${entry.$2.zh}');
+        buffer.writeln();
+      }
+    } else {
+      buffer.writeln(translation);
+      buffer.writeln();
+    }
+    if (_keyWordNotes.isNotEmpty) {
+      buffer.writeln('目标词提示：');
+      for (final note in _keyWordNotes) {
+        buffer.writeln(
+          '${note.word}：${note.meaningInContext}（${note.sentence}）',
+        );
+      }
+    }
+    return buffer.toString().trim();
+  }
 }
 
 String? _normalized(String? value) {
   final normalized = value?.trim();
   return normalized == null || normalized.isEmpty ? null : normalized;
+}
+
+final class _SentencePairCard extends StatelessWidget {
+  const _SentencePairCard({required this.index, required this.pair});
+
+  final int index;
+  final TranslationSentencePair pair;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '原句 $index',
+                style: textTheme.labelLarge?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(pair.en, style: textTheme.bodyMedium),
+              const SizedBox(height: 10),
+              Text(
+                '译文',
+                style: textTheme.labelLarge?.copyWith(
+                  color: colors.secondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(
+                pair.zh,
+                style: textTheme.bodyLarge?.copyWith(height: 1.65),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _KeyWordNoteTile extends StatelessWidget {
+  const _KeyWordNoteTile({required this.note});
+
+  final TranslationKeyWordNote note;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.tertiaryContainer.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                note.word,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colors.onTertiaryContainer,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(note.meaningInContext),
+              if (note.sentence.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  note.sentence,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

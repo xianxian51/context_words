@@ -76,32 +76,42 @@ Here is the JSON:
     expect(detail.phrases, <String>['in context']);
   });
 
-  test('parses passage translations from JSON fences and text fallback', () {
-    final parsed = DeepSeekService.parsePassageTranslation('''
+  test(
+    'parses learning passage translations from JSON fences and text fallback',
+    () {
+      final parsed = DeepSeekService.parsePassageTranslation('''
 说明如下：
 ```json
-{"title_cn":"校园生活","translation_cn":"语境能帮助我们记忆词汇。"}
+{"title_cn":"校园生活","translation_cn":"语境能帮助我们记忆词汇。","sentence_pairs":[{"en":"Context helps memory.","zh":"语境能帮助记忆。"}],"key_word_notes":[{"word":"context","meaning_in_context":"语境","sentence":"Context helps memory."}]}
 ```
 ''');
-    final fallback = DeepSeekService.parsePassageTranslation(
-      '中文标题：练习\n中文翻译：这是一段自然的中文翻译。',
-    );
+      final fallback = DeepSeekService.parsePassageTranslation(
+        '中文标题：练习\n中文翻译：这是一段自然的中文翻译。',
+      );
 
-    expect(parsed.titleCn, '校园生活');
-    expect(parsed.translationCn, '语境能帮助我们记忆词汇。');
-    expect(fallback.titleCn, '练习');
-    expect(fallback.translationCn, '这是一段自然的中文翻译。');
-  });
+      expect(parsed.titleCn, '校园生活');
+      expect(parsed.translationCn, '语境能帮助我们记忆词汇。');
+      expect(parsed.sentencePairs.single.en, 'Context helps memory.');
+      expect(parsed.keyWordNotes.single.word, 'context');
+      expect(fallback.titleCn, '练习');
+      expect(fallback.translationCn, '这是一段自然的中文翻译。');
+    },
+  );
 
-  test('translation prompt contains passage data but no API key', () {
+  test('translation prompt requests sentence pairs and key word notes', () {
     const apiKey = 'secret-key-must-stay-out-of-the-prompt';
     final prompt = DeepSeekService.translationPrompt(
       title: 'Campus',
       content: 'Context helps memory.',
+      targetWords: const <String>['context'],
     );
 
     expect(prompt, contains('Campus'));
     expect(prompt, contains('Context helps memory.'));
+    expect(prompt, contains('逐句翻译'));
+    expect(prompt, contains('sentence_pairs'));
+    expect(prompt, contains('key_word_notes'));
+    expect(prompt, contains('context'));
     expect(prompt, isNot(contains(apiKey)));
   });
 
@@ -145,6 +155,48 @@ Here is the JSON:
 
     expect(adapter.requestData?['model'], DeepSeekModel.fast.apiName);
   });
+
+  test('maps common DeepSeek HTTP errors to readable messages', () async {
+    final cases = <int, String>{
+      401: 'API Key 无效',
+      402: '余额不足',
+      429: '请求太频繁',
+      500: '服务繁忙',
+    };
+    for (final entry in cases.entries) {
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.deepseek.com'))
+        ..httpClientAdapter = _StatusAdapter(entry.key);
+      final service = DeepSeekService(dio: dio);
+
+      await expectLater(
+        service.testConnection('test-key', model: DeepSeekModel.fast),
+        throwsA(
+          isA<DeepSeekException>().having(
+            (error) => error.message,
+            'message',
+            contains(entry.value),
+          ),
+        ),
+      );
+    }
+  });
+
+  test('timeout errors suggest switching v4 pro to v4 flash', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.deepseek.com'))
+      ..httpClientAdapter = _ThrowingAdapter(DioExceptionType.receiveTimeout);
+    final service = DeepSeekService(dio: dio);
+
+    await expectLater(
+      service.testConnection('test-key', model: DeepSeekModel.highQuality),
+      throwsA(
+        isA<DeepSeekException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('响应超时'), contains('deepseek-v4-flash')),
+        ),
+      ),
+    );
+  });
 }
 
 final class _CaptureAdapter implements HttpClientAdapter {
@@ -170,6 +222,48 @@ final class _CaptureAdapter implements HttpClientAdapter {
         Headers.contentTypeHeader: <String>['application/json'],
       },
     );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final class _StatusAdapter implements HttpClientAdapter {
+  const _StatusAdapter(this.statusCode);
+
+  final int statusCode;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      '{"error":"failed"}',
+      statusCode,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final class _ThrowingAdapter implements HttpClientAdapter {
+  const _ThrowingAdapter(this.type);
+
+  final DioExceptionType type;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    throw DioException(requestOptions: options, type: type);
   }
 
   @override

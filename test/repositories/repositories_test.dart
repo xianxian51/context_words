@@ -285,10 +285,14 @@ void main() {
         id: latest!.id!,
         titleCn: '最新语境',
         translationCn: '最新的语境。',
+        sentencePairsJson: '[{"en":"Latest context.","zh":"最新的语境。"}]',
+        keyWordNotesJson:
+            '[{"word":"context","meaning_in_context":"语境","sentence":"Latest context."}]',
         translatedAt: DateTime.utc(2026, 6, 20, 10),
       );
       expect(translated.titleCn, '最新语境');
       expect(translated.translationCn, '最新的语境。');
+      expect(translated.sentencePairsJson, contains('Latest context'));
 
       await repository.create(
         CollectionPassageModel(
@@ -363,9 +367,14 @@ void main() {
       id: created.id!,
       titleCn: '晨读',
       translationCn: '语境让词汇更容易记住。',
+      sentencePairsJson:
+          '[{"en":"Context makes vocabulary memorable.","zh":"语境让词汇更容易记住。"}]',
+      keyWordNotesJson:
+          '[{"word":"context","meaning_in_context":"语境","sentence":"Context makes vocabulary memorable."}]',
       translatedAt: DateTime.utc(2026, 6, 15, 9),
     );
     expect(translated.translationCn, '语境让词汇更容易记住。');
+    expect(translated.keyWordNotesJson, contains('context'));
   });
 
   test(

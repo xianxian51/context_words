@@ -139,6 +139,25 @@ final class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _openTtsVoiceDataSettings() async {
+    setState(() => _busy = true);
+    try {
+      final opened = await context
+          .read<AppController>()
+          .openTtsVoiceDataSettings();
+      if (mounted) {
+        _show(
+          opened ? '已打开系统 TTS 设置。返回后请重新检测。' : '无法打开系统 TTS 设置。',
+          type: opened ? AppSnackBarType.success : AppSnackBarType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   Future<void> _changeTtsVoicePreference(TtsVoicePreference preference) async {
     final previousPreference = _ttsVoicePreference;
     setState(() {
@@ -518,7 +537,12 @@ final class _SettingsPageState extends State<SettingsPage> {
                       TextButton.icon(
                         onPressed: _busy ? null : _detectSpeech,
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('刷新 TTS 状态'),
+                        label: const Text('重新检测语音包'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _busy ? null : _openTtsVoiceDataSettings,
+                        icon: const Icon(Icons.install_mobile_rounded),
+                        label: const Text('下载/安装英语语音包'),
                       ),
                     ],
                   ),

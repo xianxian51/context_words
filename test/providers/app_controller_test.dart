@@ -200,6 +200,7 @@ void main() {
       await controller.refresh();
       await controller.prepareTodayLearning();
       expect(adapter.calls, 2);
+      expect(adapter.maxConcurrent, 1);
       await controller.prepareTodayLearning();
       expect(adapter.calls, 2);
 
@@ -210,6 +211,7 @@ void main() {
 
       expect(appended.batchNo, 2);
       expect(adapter.calls, 4);
+      expect(adapter.maxConcurrent, 1);
       expect(firstBatchPassages, hasLength(2));
       expect(secondBatchPassages, hasLength(2));
       controller.dispose();
@@ -314,6 +316,8 @@ void main() {
 
     expect(translation.titleCn, '校园');
     expect(saved?.translationCn, '语境帮助记忆。');
+    expect(saved?.sentencePairsJson, contains('Context helps memory'));
+    expect(saved?.keyWordNotesJson, contains('context'));
     expect(adapter.calls, 1);
     controller.dispose();
     await helper.close();
@@ -335,9 +339,22 @@ final class _TranslationAdapter implements HttpClientAdapter {
         'choices': <Object>[
           <String, Object>{
             'message': <String, Object>{
-              'content': jsonEncode(<String, String>{
+              'content': jsonEncode(<String, Object>{
                 'title_cn': '校园',
                 'translation_cn': '语境帮助记忆。',
+                'sentence_pairs': <Object>[
+                  <String, String>{
+                    'en': 'Context helps memory.',
+                    'zh': '语境帮助记忆。',
+                  },
+                ],
+                'key_word_notes': <Object>[
+                  <String, String>{
+                    'word': 'context',
+                    'meaning_in_context': '语境',
+                    'sentence': 'Context helps memory.',
+                  },
+                ],
               }),
             },
           },
@@ -356,6 +373,8 @@ final class _TranslationAdapter implements HttpClientAdapter {
 
 final class _PassageAdapter implements HttpClientAdapter {
   int calls = 0;
+  int inFlight = 0;
+  int maxConcurrent = 0;
 
   @override
   Future<ResponseBody> fetch(
@@ -363,25 +382,34 @@ final class _PassageAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    inFlight++;
+    if (inFlight > maxConcurrent) {
+      maxConcurrent = inFlight;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 1));
     calls++;
     final passage = jsonEncode(<String, Object>{
       'title': 'Generated $calls',
       'content': 'Alpha beta gamma delta appear naturally in this context.',
       'usedWords': <String>['alpha', 'beta', 'gamma', 'delta'],
     });
-    return ResponseBody.fromString(
-      jsonEncode(<String, Object>{
-        'choices': <Object>[
-          <String, Object>{
-            'message': <String, Object>{'content': passage},
-          },
-        ],
-      }),
-      200,
-      headers: <String, List<String>>{
-        Headers.contentTypeHeader: <String>['application/json'],
-      },
-    );
+    try {
+      return ResponseBody.fromString(
+        jsonEncode(<String, Object>{
+          'choices': <Object>[
+            <String, Object>{
+              'message': <String, Object>{'content': passage},
+            },
+          ],
+        }),
+        200,
+        headers: <String, List<String>>{
+          Headers.contentTypeHeader: <String>['application/json'],
+        },
+      );
+    } finally {
+      inFlight--;
+    }
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/collection_passage_model.dart';
+import '../../models/deepseek_models.dart';
 import '../../models/word_model.dart';
 import '../../providers/app_controller.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -167,6 +168,8 @@ final class _PassageViewPageState extends State<PassageViewPage> {
               key: ValueKey<int?>(_passage.id),
               initialTitleCn: _passage.titleCn,
               initialTranslationCn: _passage.translationCn,
+              initialSentencePairsJson: _passage.sentencePairsJson,
+              initialKeyWordNotesJson: _passage.keyWordNotesJson,
               onTranslate: ({required force}) async {
                 final translation = await context
                     .read<AppController>()
@@ -176,6 +179,12 @@ final class _PassageViewPageState extends State<PassageViewPage> {
                     () => _passage = _passage.copyWith(
                       titleCn: translation.titleCn,
                       translationCn: translation.translationCn,
+                      sentencePairsJson: encodeTranslationSentencePairs(
+                        translation.sentencePairs,
+                      ),
+                      keyWordNotesJson: encodeTranslationKeyWordNotes(
+                        translation.keyWordNotes,
+                      ),
                       translatedAt: DateTime.now().toUtc(),
                     ),
                   );

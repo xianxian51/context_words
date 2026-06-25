@@ -35,6 +35,8 @@ final class CollectionPassageRepository {
     required int id,
     required String? titleCn,
     required String translationCn,
+    required String sentencePairsJson,
+    required String keyWordNotesJson,
     required DateTime translatedAt,
   }) async {
     final database = await _databaseHelper.database;
@@ -43,6 +45,8 @@ final class CollectionPassageRepository {
       <String, Object?>{
         'title_cn': titleCn,
         'translation_cn': translationCn,
+        'sentence_pairs_json': sentencePairsJson,
+        'key_word_notes_json': keyWordNotesJson,
         'translated_at': translatedAt.toUtc().toIso8601String(),
       },
       where: 'id = ?',

@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import '../core/services/deepseek_service.dart';
 import '../core/services/backup_service.dart';
 import '../core/services/settings_service.dart';
+import '../core/services/tts_settings_launcher.dart';
 import '../core/services/tts_service.dart';
 import '../core/services/update_service.dart';
 import '../core/services/word_import_parser.dart';
@@ -45,6 +46,7 @@ final class AppController extends ChangeNotifier {
     SettingsService? settingsService,
     DeepSeekService? deepSeekService,
     TtsService? ttsService,
+    TtsSettingsLauncher? ttsSettingsLauncher,
     WordbookService? wordbookService,
     WordLookupService? wordLookupService,
     WordBookRepository? wordBookRepository,
@@ -58,6 +60,7 @@ final class AppController extends ChangeNotifier {
        _settingsService = settingsService ?? SettingsService(),
        _deepSeekService = deepSeekService ?? DeepSeekService(),
        _ttsService = ttsService ?? TtsService(),
+       _ttsSettingsLauncher = ttsSettingsLauncher ?? TtsSettingsLauncher(),
        _wordBookRepository = wordBookRepository ?? WordBookRepository(),
        _confusingWordGroupRepository =
            confusingWordGroupRepository ?? ConfusingWordGroupRepository(),
@@ -83,6 +86,7 @@ final class AppController extends ChangeNotifier {
   final SettingsService _settingsService;
   final DeepSeekService _deepSeekService;
   final TtsService _ttsService;
+  final TtsSettingsLauncher _ttsSettingsLauncher;
   final WordBookRepository _wordBookRepository;
   final ConfusingWordGroupRepository _confusingWordGroupRepository;
   final CollectionPassageRepository _collectionPassageRepository;
@@ -108,6 +112,7 @@ final class AppController extends ChangeNotifier {
   DeepSeekModel deepSeekModel = SettingsService.defaultDeepSeekModel;
   bool checkUpdatesOnLaunch = SettingsService.defaultCheckUpdatesOnLaunch;
   bool isPreparingToday = false;
+  bool isGeneratingPassage = false;
   String? preparationStatus;
   String? lastPreparedDate;
   TtsStatus ttsStatus = const TtsStatus(TtsAvailability.checking);
@@ -414,7 +419,7 @@ final class AppController extends ChangeNotifier {
     );
     final existingRounds = existing.map((passage) => passage.round).toSet();
     if (!existingRounds.contains(1)) {
-      preparationStatus = '正在生成阅读预热…';
+      preparationStatus = '正在生成第 $selectedBatchNo 组阅读预热…';
       notifyListeners();
       await generatePassage(1);
     }
@@ -423,7 +428,7 @@ final class AppController extends ChangeNotifier {
       selectedBatchNo,
     );
     if (!existing.any((passage) => passage.round == 2)) {
-      preparationStatus = '正在生成语境强化…';
+      preparationStatus = '正在生成第 $selectedBatchNo 组语境强化…';
       notifyListeners();
       await generatePassage(2);
     }
@@ -515,53 +520,67 @@ final class AppController extends ChangeNotifier {
   }
 
   Future<ReadingPassageModel> generatePassage(int round) async {
-    return _runBusy('正在生成第$round篇阅读…', showDeepSeekSlowMessage: true, () async {
-      if (round != 1 && round != 2) {
-        throw const AppException('阅读轮次必须是 1 或 2。');
-      }
-      final plan = todayPlan;
-      final planId = plan?.id;
-      if (planId == null || todayWords.isEmpty) {
-        throw const AppException('请先生成今日计划。');
-      }
-      final existing = passages[round];
-      if (existing != null) {
-        throw AppException('第$round篇阅读已经存在。');
-      }
-      if (round == 2 && passages[1] == null) {
-        throw const AppException('请先生成第一篇阅读。');
-      }
-      final apiKey = await _requiredApiKey();
-      final words = todayWords
-          .map((item) => item.word.word)
-          .toList(growable: false);
-      final generated = round == 1
-          ? await _deepSeekService.generateMorningPassage(
-              words,
-              apiKey: apiKey,
-              model: deepSeekModel,
-            )
-          : await _deepSeekService.generateAfternoonPassage(
-              words,
-              apiKey: apiKey,
-              model: deepSeekModel,
-              morningTitle: passages[1]?.title,
-            );
-      final normalized = _normalizeGeneratedPassage(generated, words);
-      final passage = await _readingRepository.create(
-        ReadingPassageModel(
-          planId: planId,
-          batchNo: selectedBatchNo,
-          round: round,
-          title: normalized.title,
-          content: normalized.content,
-          usedWords: normalized.usedWords,
-          aiGenerated: true,
-        ),
+    if (isGeneratingPassage) {
+      throw const AppException('阅读正在生成中，请稍候。');
+    }
+    isGeneratingPassage = true;
+    notifyListeners();
+    try {
+      return await _runBusy(
+        '正在生成第$round篇阅读…',
+        showDeepSeekSlowMessage: true,
+        () async {
+          if (round != 1 && round != 2) {
+            throw const AppException('阅读轮次必须是 1 或 2。');
+          }
+          final plan = todayPlan;
+          final planId = plan?.id;
+          if (planId == null || todayWords.isEmpty) {
+            throw const AppException('请先生成今日计划。');
+          }
+          final existing = passages[round];
+          if (existing != null) {
+            throw AppException('第$round篇阅读已经存在。');
+          }
+          if (round == 2 && passages[1] == null) {
+            throw const AppException('请先生成第一篇阅读。');
+          }
+          final apiKey = await _requiredApiKey();
+          final words = todayWords
+              .map((item) => item.word.word)
+              .toList(growable: false);
+          final generated = round == 1
+              ? await _deepSeekService.generateMorningPassage(
+                  words,
+                  apiKey: apiKey,
+                  model: deepSeekModel,
+                )
+              : await _deepSeekService.generateAfternoonPassage(
+                  words,
+                  apiKey: apiKey,
+                  model: deepSeekModel,
+                  morningTitle: passages[1]?.title,
+                );
+          final normalized = _normalizeGeneratedPassage(generated, words);
+          final passage = await _readingRepository.create(
+            ReadingPassageModel(
+              planId: planId,
+              batchNo: selectedBatchNo,
+              round: round,
+              title: normalized.title,
+              content: normalized.content,
+              usedWords: normalized.usedWords,
+              aiGenerated: true,
+            ),
+          );
+          await refresh();
+          return passage;
+        },
       );
-      await refresh();
-      return passage;
-    });
+    } finally {
+      isGeneratingPassage = false;
+      notifyListeners();
+    }
   }
 
   Future<PassageTranslation> translateReadingPassage(
@@ -573,6 +592,10 @@ final class AppController extends ChangeNotifier {
       return PassageTranslation(
         titleCn: passage.titleCn,
         translationCn: cached,
+        sentencePairs: decodeTranslationSentencePairs(
+          passage.sentencePairsJson,
+        ),
+        keyWordNotes: decodeTranslationKeyWordNotes(passage.keyWordNotesJson),
       );
     }
     return _runBusy('正在翻译全文…', showDeepSeekSlowMessage: true, () async {
@@ -586,6 +609,7 @@ final class AppController extends ChangeNotifier {
         final translation = await _deepSeekService.translatePassageToChinese(
           title: passage.title ?? '',
           content: content,
+          targetWords: passage.usedWords,
           apiKey: apiKey,
           model: deepSeekModel,
         );
@@ -593,6 +617,12 @@ final class AppController extends ChangeNotifier {
           id: id,
           titleCn: translation.titleCn,
           translationCn: translation.translationCn,
+          sentencePairsJson: encodeTranslationSentencePairs(
+            translation.sentencePairs,
+          ),
+          keyWordNotesJson: encodeTranslationKeyWordNotes(
+            translation.keyWordNotes,
+          ),
           translatedAt: DateTime.now().toUtc(),
         );
         if (saved.batchNo == selectedBatchNo) {
@@ -605,6 +635,10 @@ final class AppController extends ChangeNotifier {
         return PassageTranslation(
           titleCn: saved.titleCn,
           translationCn: saved.translationCn!,
+          sentencePairs: decodeTranslationSentencePairs(
+            saved.sentencePairsJson,
+          ),
+          keyWordNotes: decodeTranslationKeyWordNotes(saved.keyWordNotesJson),
         );
       } on DeepSeekException catch (error) {
         throw AppException(error.message);
@@ -968,6 +1002,10 @@ final class AppController extends ChangeNotifier {
       return PassageTranslation(
         titleCn: passage.titleCn,
         translationCn: cached,
+        sentencePairs: decodeTranslationSentencePairs(
+          passage.sentencePairsJson,
+        ),
+        keyWordNotes: decodeTranslationKeyWordNotes(passage.keyWordNotesJson),
       );
     }
     return _runBusy('正在翻译全文…', showDeepSeekSlowMessage: true, () async {
@@ -981,6 +1019,7 @@ final class AppController extends ChangeNotifier {
         final translation = await _deepSeekService.translatePassageToChinese(
           title: passage.title ?? '',
           content: content,
+          targetWords: passage.usedWords,
           apiKey: apiKey,
           model: deepSeekModel,
         );
@@ -988,11 +1027,21 @@ final class AppController extends ChangeNotifier {
           id: id,
           titleCn: translation.titleCn,
           translationCn: translation.translationCn,
+          sentencePairsJson: encodeTranslationSentencePairs(
+            translation.sentencePairs,
+          ),
+          keyWordNotesJson: encodeTranslationKeyWordNotes(
+            translation.keyWordNotes,
+          ),
           translatedAt: DateTime.now().toUtc(),
         );
         return PassageTranslation(
           titleCn: saved.titleCn,
           translationCn: saved.translationCn!,
+          sentencePairs: decodeTranslationSentencePairs(
+            saved.sentencePairsJson,
+          ),
+          keyWordNotes: decodeTranslationKeyWordNotes(saved.keyWordNotesJson),
         );
       } on DeepSeekException catch (error) {
         throw AppException(error.message);
@@ -1110,6 +1159,10 @@ final class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> openTtsVoiceDataSettings() {
+    return _ttsSettingsLauncher.openInstallTtsData();
+  }
+
   void setActionMessage(String message, {bool isError = false}) {
     actionMessage = message;
     actionMessageIsError = isError;
@@ -1140,9 +1193,11 @@ final class AppController extends ChangeNotifier {
     slowOperationMessage = null;
     notifyListeners();
     final timer = showDeepSeekSlowMessage
-        ? Timer(const Duration(seconds: 20), () {
+        ? Timer(const Duration(seconds: 15), () {
             if (isBusy) {
-              slowOperationMessage = 'DeepSeek 响应较慢，请稍等或稍后重试。';
+              slowOperationMessage = deepSeekModel == DeepSeekModel.highQuality
+                  ? 'DeepSeek 响应较慢，请稍等。当前使用 deepseek-v4-pro，可在设置中切换 deepseek-v4-flash 快速模式。'
+                  : 'DeepSeek 响应较慢，请稍等或稍后重试。';
               notifyListeners();
             }
           })

@@ -94,13 +94,26 @@ final class DatabaseHelper {
           if (oldVersion < 5) {
             await _addPassageTranslationColumns(database);
           }
+          if (oldVersion < 6) {
+            await _addColumns(
+              database,
+              DatabaseSchema.version6LearningTranslationColumns,
+            );
+          }
         },
       ),
     );
   }
 
   Future<void> _addPassageTranslationColumns(sqflite.Database database) async {
-    for (final entry in DatabaseSchema.version5TranslationColumns.entries) {
+    await _addColumns(database, DatabaseSchema.version5TranslationColumns);
+  }
+
+  Future<void> _addColumns(
+    sqflite.Database database,
+    Map<String, List<String>> columnsByTable,
+  ) async {
+    for (final entry in columnsByTable.entries) {
       final existingColumns = (await database.rawQuery(
         'PRAGMA table_info(${entry.key})',
       )).map((row) => row['name']).whereType<String>().toSet();
